@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#111318" />
+<title>Adaptive Pomodoro — MVP</title>
+<style>
+:root{
+  --bg:#0d0f13;
+  --panel:#151820;
+  --panel2:#1b1f29;
+  --text:#f4f6fb;
+  --muted:#9aa3b2;
+  --line:#2a3040;
+  --accent:#7c8cff;
+  --accent2:#5ee0b2;
+  --danger:#ff7070;
+  --warn:#ffbf69;
+  --shadow:0 18px 50px rgba(0,0,0,.28);
+  --radius:18px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:radial-gradient(circle at top left,#161a24 0,#0d0f13 46%);
+  color:var(--text);
+  min-height:100vh;
+}
+button,input{font:inherit}
+button{cursor:pointer}
+.app{max-width:1120px;margin:0 auto;padding:28px 18px 64px}
+.topbar{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:24px}
+.brand h1{margin:0;font-size:28px;letter-spacing:-.04em}
+.brand p{margin:5px 0 0;color:var(--muted);font-size:14px}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.btn{
+  border:1px solid var(--line);
+  background:var(--panel2);
+  color:var(--text);
+  padding:10px 14px;
+  border-radius:12px;
+  transition:.18s ease;
+}
+.btn:hover{transform:translateY(-1px);border-color:#48516a}
+.btn.primary{background:var(--accent);border-color:transparent;color:white;font-weight:700}
+.btn.success{background:var(--accent2);color:#07120e;border-color:transparent;font-weight:800}
+.btn.danger{background:transparent;color:#ff9b9b;border-color:#5b3036}
+.grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}
+.card{
+  background:linear-gradient(180deg,rgba(27,31,41,.98),rgba(19,22,29,.98));
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:20px;
+}
+.card h2,.card h3{margin:0 0 10px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.stat{background:#11141b;border:1px solid var(--line);border-radius:14px;padding:14px}
+.stat .label{color:var(--muted);font-size:12px}
+.stat .value{font-size:22px;font-weight:800;margin-top:4px}
+.section-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.field{margin:14px 0}
+.field label{display:block;font-size:13px;color:#c8ced8;margin-bottom:7px}
+input[type="number"], input[type="time"]{
+  width:100%;background:#0f1218;color:var(--text);border:1px solid var(--line);
+  border-radius:12px;padding:12px 13px;outline:none;
+}
+input:focus{border-color:#5968d7}
+.inline{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.plan-options{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+.plan{
+  background:#10131a;border:1px solid var(--line);border-radius:16px;padding:15px;position:relative;
+}
+.plan.selected{border-color:var(--accent);box-shadow:0 0 0 2px rgba(124,140,255,.12)}
+.plan-name{font-weight:800;margin-bottom:8px}
+.curve{display:flex;align-items:end;gap:5px;height:88px;margin:10px 0}
+.bar{flex:1;min-width:8px;background:linear-gradient(180deg,var(--accent),#4b56b3);border-radius:6px 6px 2px 2px;position:relative}
+.bar span{position:absolute;bottom:100%;left:50%;transform:translate(-50%,-5px);font-size:10px;color:#bbc2d0}
+.plan-meta{display:flex;justify-content:space-between;gap:6px;color:var(--muted);font-size:12px}
+.session-edit{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.chip{background:#10131a;border:1px solid var(--line);border-radius:999px;padding:8px 10px;display:flex;align-items:center;gap:6px}
+.chip input{width:46px;background:transparent;border:0;color:white;outline:none;text-align:center}
+.suggestion{
+  padding:14px;border-radius:14px;background:#111821;border:1px solid #28405a;margin-top:10px
+}
+.suggestion strong{display:block;margin-bottom:5px}
+.tag{font-size:11px;padding:4px 8px;border-radius:999px;background:#20263a;color:#cbd3ff;border:1px solid #303a60}
+.hidden{display:none !important}
+.timer-wrap{text-align:center;padding:26px 14px}
+.timer-kind{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
+.timer{font-size:76px;font-weight:900;letter-spacing:-.06em;margin:8px 0}
+.timer-sub{color:var(--muted);margin-bottom:20px}
+.progress{height:10px;background:#0c0f14;border-radius:999px;overflow:hidden;border:1px solid #252b39}
+.progress>div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0%}
+.timer-controls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:18px}
+.timeline{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:18px}
+.node{padding:7px 9px;border-radius:10px;border:1px solid var(--line);font-size:12px;color:#b7bfcc;background:#11151c}
+.node.active{border-color:var(--accent);color:white}
+.node.done{background:#153127;border-color:#275946;color:#bdf6df}
+.node.break{opacity:.72}
+.history-item{padding:12px 0;border-bottom:1px solid var(--line)}
+.history-item:last-child{border-bottom:0}
+.history-head{display:flex;justify-content:space-between;gap:12px}
+.rpe{font-weight:800;color:#ffd18d}
+.modal-backdrop{
+  position:fixed;inset:0;background:rgba(4,6,10,.76);backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;padding:18px;z-index:20;
+}
+.modal{width:min(560px,100%);background:#171b24;border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:var(--shadow)}
+.modal h2{margin-top:0}
+.rpe-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}
+.rpe-btn{padding:13px 0;border-radius:12px;border:1px solid var(--line);background:#10131a;color:white}
+.rpe-btn:hover,.rpe-btn.selected{border-color:var(--accent);background:#1d2340}
+.footer-note{color:var(--muted);font-size:12px;margin-top:16px;line-height:1.5}
+.empty{color:var(--muted);padding:12px 0}
+@media(max-width:850px){
+  .grid{grid-template-columns:1fr}
+  .stats{grid-template-columns:1fr 1fr}
+  .plan-options{grid-template-columns:1fr}
+}
+@media(max-width:520px){
+  .topbar{align-items:flex-start;flex-direction:column}
+  .timer{font-size:58px}
+  .inline{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <h1>Adaptive Pomodoro</h1>
+      <p>Önce alışkanlığı kur. Sonra yükü akıllıca artır.</p>
+    </div>
+    <div class="actions">
+      <button class="btn" id="profileBtn">Profil</button>
+      <button class="btn" id="exportBtn">Veriyi dışa aktar</button>
+      <button class="btn danger" id="resetBtn">Sıfırla</button>
+    </div>
+  </div>
+
+  <div id="dashboardView">
+    <div class="grid">
+      <div>
+        <div class="card">
+          <div class="section-title">
+            <div>
+              <h2>Bugünkü çalışma</h2>
+              <div class="muted small">Brüt zaman pencerene göre birkaç uygulanabilir çan üret.</div>
+            </div>
+            <span class="tag">MVP v0.1</span>
+          </div>
+
+          <div class="inline">
+            <div class="field">
+              <label>Ne kadar vaktin var? (dakika, molalar dahil)</label>
+              <input id="grossMinutes" type="number" min="30" max="480" step="5" value="180">
+            </div>
+            <div class="field">
+              <label>Standart mola (dakika)</label>
+              <input id="breakMinutes" type="number" min="2" max="30" step="1" value="5">
+            </div>
+          </div>
+
+          <button class="btn primary" id="generateBtn">Çan seçeneklerini üret</button>
+
+          <div id="plansWrap" class="hidden">
+            <div class="plan-options" id="planOptions"></div>
+            <div id="manualEditor" class="hidden">
+              <div class="field">
+                <label>Seçili çanı düzenle (dakika)</label>
+                <div class="session-edit" id="sessionEditor"></div>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+              <button class="btn" id="editPlanBtn">Manuel düzenle</button>
+              <button class="btn success" id="startPlanBtn">Çalışmayı başlat</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:18px">
+          <div class="section-title">
+            <div>
+              <h2>Akıllı öneriler</h2>
+              <div class="muted small">Tek bir kötü günden değil, tekrar eden pattern'lerden üretilir.</div>
+            </div>
+          </div>
+          <div id="suggestions"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h2>Durum</h2>
+          <div class="stats">
+            <div class="stat"><div class="label">Streak</div><div class="value" id="streakStat">0</div></div>
+            <div class="stat"><div class="label">7 günde aktif</div><div class="value" id="freqStat">0</div></div>
+            <div class="stat"><div class="label">Adherence</div><div class="value" id="adhStat">—</div></div>
+            <div class="stat"><div class="label">Ort. RPE</div><div class="value" id="rpeStat">—</div></div>
+          </div>
+          <div class="footer-note">
+            Frequency, adherence, dropout location ve RPE ayrı tutulur. MVP şimdilik bunları tek bir “sihirli skor”a dönüştürmez.
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:18px">
+          <div class="section-title">
+            <div>
+              <h2>Son oturumlar</h2>
+              <div class="muted small">Ham davranış verisi burada kalır.</div>
+            </div>
+          </div>
+          <div id="history"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="timerView" class="hidden">
+    <div class="card timer-wrap">
+      <div class="timer-kind" id="timerKind">Çalışma</div>
+      <div class="timer" id="timerText">25:00</div>
+      <div class="timer-sub" id="timerSub">1. çalışma bloğu</div>
+      <div class="progress"><div id="timerProgress"></div></div>
+      <div class="timeline" id="timeline"></div>
+      <div class="timer-controls">
+        <button class="btn primary" id="pauseBtn">Duraklat</button>
+        <button class="btn" id="skipBreakBtn">Molayı geç</button>
+        <button class="btn danger" id="endSessionBtn">Oturumu bitir</button>
+      </div>
+      <div class="footer-note">
+        Sayaç gerçek zamana göre hesaplanır; sekme arka plana geçse bile geri döndüğünde kalan süre düzeltilir.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop hidden" id="onboardingModal">
+  <div class="modal">
+    <h2>Çalışma profilini oluşturalım</h2>
+    <p class="muted">Bu üç veri ilk çanları ölçeklemek için kullanılır. Sonradan istediğin zaman değiştirebilirsin.</p>
+    <div class="field">
+      <label>Günlük ortalama net çalışma süren (dakika)</label>
+      <input id="avgDaily" type="number" min="0" max="900" step="10" value="120">
+    </div>
+    <div class="field">
+      <label>Günlük hedef net çalışma süren (dakika)</label>
+      <input id="targetDaily" type="number" min="0" max="900" step="10" value="180">
+    </div>
+    <div class="field">
+      <label>Tek seferde yaklaşık kaç dakika sonra belirgin şekilde sıkılmaya / zorlanmaya başlıyorsun?</label>
+      <input id="focusTolerance" type="number" min="5" max="180" step="5" value="30">
+    </div>
+    <button class="btn primary" id="saveProfileBtn" style="width:100%">Profili kaydet</button>
+  </div>
+</div>
+
+<div class="modal-backdrop hidden" id="feedbackModal">
+  <div class="modal">
+    <h2>Bugünkü çan ne kadar zordu?</h2>
+    <p class="muted">1 = çok kolay · 5 = tam kararında · 10 = bu tempo sürdürülemez</p>
+    <div class="rpe-grid" id="rpeGrid"></div>
+    <button class="btn primary" id="saveFeedbackBtn" style="width:100%">Kaydet</button>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "adaptivePomodoroMVP_v01";
+
+const defaultState = {
+  profile: null,
+  runs: [],
+  selectedCurve: null,
+  previousCurve: null
+};
+
+let state = loadState();
+let selectedPlan = null;
+let selectedRpe = null;
+
+let timerState = null;
+let intervalId = null;
+
+const $ = (id) => document.getElementById(id);
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? {...defaultState, ...JSON.parse(raw)} : structuredClone(defaultState);
+  }catch(e){
+    return structuredClone(defaultState);
+  }
+}
+function saveState(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+function clamp(v,min,max){ return Math.min(max,Math.max(min,v)); }
+function sum(arr){ return arr.reduce((a,b)=>a+b,0); }
+function round5(v){ return Math.max(5, Math.round(v/5)*5); }
+function fmtMin(v){ return Math.round(v) + " dk"; }
+function dayKey(ts){ return new Date(ts).toISOString().slice(0,10); }
+
+function openProfile(){
+  const p = state.profile || {avgDaily:120,targetDaily:180,focusTolerance:30};
+  $("avgDaily").value = p.avgDaily;
+  $("targetDaily").value = p.targetDaily;
+  $("focusTolerance").value = p.focusTolerance;
+  $("onboardingModal").classList.remove("hidden");
+}
+
+function saveProfile(){
+  state.profile = {
+    avgDaily: +$("avgDaily").value || 0,
+    targetDaily: +$("targetDaily").value || 0,
+    focusTolerance: clamp(+$("focusTolerance").value || 30,5,180)
+  };
+  saveState();
+  $("onboardingModal").classList.add("hidden");
+  renderAll();
+}
+
+function curveFromTemplate(template, gross, breakMin, targetWork, focusTol){
+  let curve = template.weights.map(w => round5(focusTol * w));
+  const breaks = (curve.length - 1) * breakMin;
+
+  let maxWork = Math.max(20, gross - breaks);
+  let desired = Math.min(targetWork, maxWork);
+  let current = sum(curve);
+
+  if(current > desired){
+    const scale = desired / current;
+    curve = curve.map(x => round5(Math.max(5, x * scale)));
+  } else {
+    // Grow shoulders/peak gently, but keep the plan within the time window.
+    let guard = 0;
+    while(sum(curve) + 5 <= desired && guard < 200){
+      const order = template.growOrder;
+      let changed = false;
+      for(const idx of order){
+        const localCap = focusTol * (idx === template.peak ? 1.45 : 1.25);
+        if(curve[idx] + 5 <= localCap && sum(curve) + 5 <= desired){
+          curve[idx] += 5;
+          changed = true;
+        }
+      }
+      if(!changed) break;
+      guard++;
+    }
+  }
+
+  return curve;
+}
+
+function generatePlans(){
+  if(!state.profile) return openProfile();
+
+  const gross = clamp(+$("grossMinutes").value || 180,30,480);
+  const breakMin = clamp(+$("breakMinutes").value || 5,2,30);
+  const p = state.profile;
+
+  // Brüt pencerenin tamamını zorla doldurmak yerine sürdürülebilir bir net çalışma hedefi kuruyoruz.
+  const windowWorkTarget = Math.round(gross * 0.83);
+  const targetWork = Math.min(
+    Math.max(p.avgDaily || 0, Math.min(p.targetDaily || windowWorkTarget, windowWorkTarget)),
+    windowWorkTarget
+  );
+
+  const templates = [
+    {name:"Davetkâr", weights:[.50,.68,.84,1.0,.84,.68,.50], peak:3, growOrder:[2,4,1,5,3,0,6]},
+    {name:"Dengeli", weights:[.68,.84,1.12,.84,.68], peak:2, growOrder:[1,3,2,0,4]},
+    {name:"Derin", weights:[.78,1.0,1.28,1.0,.78], peak:2, growOrder:[1,3,2,0,4]}
+  ];
+
+  const plans = [];
+
+  // Kullanıcının halihazırda benimsediği profili mümkünse ilk seçenek olarak koru.
+  if(state.selectedCurve && state.selectedCurve.length){
+    let curve = [...state.selectedCurve];
+    const breaks = (curve.length-1)*breakMin;
+    const maxWork = Math.max(20, gross-breaks);
+    if(sum(curve) > maxWork){
+      const scale = maxWork/sum(curve);
+      curve = curve.map(v=>round5(Math.max(5,v*scale)));
+    }
+    const work = sum(curve);
+    const breakTotal = (curve.length-1)*breakMin;
+    plans.push({
+      name:"Mevcut profil",
+      curve,
+      breakMin,
+      gross,
+      work,
+      breakTotal,
+      spare:Math.max(0,gross-work-breakTotal)
+    });
+  }
+
+  templates.forEach(t=>{
+    const curve = curveFromTemplate(t,gross,breakMin,targetWork,p.focusTolerance);
+    const work = sum(curve);
+    const breakTotal = (curve.length-1)*breakMin;
+    plans.push({
+      name:t.name,
+      curve,
+      breakMin,
+      gross,
+      work,
+      breakTotal,
+      spare: Math.max(0,gross-work-breakTotal)
+    });
+  });
+
+  // Remove exact duplicates
+  const unique = [];
+  const seen = new Set();
+  for(const pl of plans){
+    const k = pl.curve.join("-");
+    if(!seen.has(k)){ seen.add(k); unique.push(pl); }
+  }
+  renderPlans(unique);
+}
+
+function renderPlans(plans){
+  const root = $("planOptions");
+  root.innerHTML = "";
+  plans.forEach((p,i)=>{
+    const el = document.createElement("div");
+    el.className = "plan" + (i===0 ? " selected":"");
+    const mx = Math.max(...p.curve);
+    el.innerHTML = `
+      <div class="plan-name">${p.name}</div>
+      <div class="muted small">${p.curve.join(" – ")}</div>
+      <div class="curve">
+        ${p.curve.map(v=>`<div class="bar" style="height:${Math.max(16,v/mx*72)}px"><span>${v}</span></div>`).join("")}
+      </div>
+      <div class="plan-meta"><span>${p.work} dk net</span><span>${p.breakTotal} dk mola</span><span>${p.spare} dk tampon</span></div>
+    `;
+    el.onclick = ()=>{
+      document.querySelectorAll(".plan").forEach(x=>x.classList.remove("selected"));
+      el.classList.add("selected");
+      selectedPlan = structuredClone(p);
+      renderSessionEditor();
+    };
+    root.appendChild(el);
+  });
+  selectedPlan = structuredClone(plans[0]);
+  $("plansWrap").classList.remove("hidden");
+  $("manualEditor").classList.add("hidden");
+  renderSessionEditor();
+}
+
+function renderSessionEditor(){
+  if(!selectedPlan) return;
+  const root = $("sessionEditor");
+  root.innerHTML = "";
+  selectedPlan.curve.forEach((v,i)=>{
+    const chip = document.createElement("div");
+    chip.className="chip";
+    chip.innerHTML=`<span>${i+1}.</span><input type="number" min="5" max="180" step="5" value="${v}"><span>dk</span>`;
+    const inp = chip.querySelector("input");
+    inp.onchange = ()=>{
+      selectedPlan.curve[i] = clamp(+inp.value || 5,5,180);
+      selectedPlan.work = sum(selectedPlan.curve);
+    };
+    root.appendChild(chip);
+  });
+}
+
+function buildTimeline(curve, breakMin){
+  const tl = [];
+  curve.forEach((v,i)=>{
+    tl.push({type:"work", minutes:v, workIndex:i});
+    if(i < curve.length-1) tl.push({type:"break", minutes:breakMin});
+  });
+  return tl;
+}
+
+function startSelectedPlan(){
+  if(!selectedPlan) return;
+  const timeline = buildTimeline(selectedPlan.curve, selectedPlan.breakMin);
+  timerState = {
+    runId: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    startedAt: Date.now(),
+    plan: structuredClone(selectedPlan),
+    timeline,
+    index:0,
+    paused:false,
+    elapsedBeforePauseMs:0,
+    blockStartedAt:Date.now(),
+    blockEndAt:Date.now()+timeline[0].minutes*60000,
+    actualWork: Array(selectedPlan.curve.length).fill(0),
+    ended:false
+  };
+  $("dashboardView").classList.add("hidden");
+  $("timerView").classList.remove("hidden");
+  renderTimerStatic();
+  tick();
+  intervalId = setInterval(tick,250);
+}
+
+function currentBlock(){
+  return timerState?.timeline[timerState.index];
+}
+
+function getElapsedCurrentMs(){
+  if(!timerState) return 0;
+  if(timerState.paused) return timerState.elapsedBeforePauseMs;
+  return timerState.elapsedBeforePauseMs + Math.max(0, Date.now()-timerState.blockStartedAt);
+}
+
+function tick(){
+  if(!timerState) return;
+  const block = currentBlock();
+  const totalMs = block.minutes*60000;
+  const elapsedMs = clamp(getElapsedCurrentMs(),0,totalMs);
+  const leftMs = Math.max(0,totalMs-elapsedMs);
+  const sec = Math.ceil(leftMs/1000);
+  const mm = String(Math.floor(sec/60)).padStart(2,"0");
+  const ss = String(sec%60).padStart(2,"0");
+  $("timerText").textContent = `${mm}:${ss}`;
+  $("timerProgress").style.width = `${clamp(elapsedMs/totalMs*100,0,100)}%`;
+
+  if(leftMs <= 0 && !timerState.paused){
+    completeCurrentBlock();
+  }
+}
+
+function completeCurrentBlock(){
+  const block = currentBlock();
+  if(block.type==="work"){
+    timerState.actualWork[block.workIndex] = block.minutes;
+  }
+  timerState.index++;
+  if(timerState.index >= timerState.timeline.length){
+    finishRun(true);
+    return;
+  }
+  timerState.elapsedBeforePauseMs = 0;
+  timerState.blockStartedAt = Date.now();
+  timerState.blockEndAt = Date.now()+currentBlock().minutes*60000;
+  renderTimerStatic();
+}
+
+function renderTimerStatic(){
+  if(!timerState) return;
+  const block = currentBlock();
+  $("timerKind").textContent = block.type==="work" ? "Çalışma" : "Mola";
+  if(block.type==="work"){
+    $("timerSub").textContent = `${block.workIndex+1}. çalışma bloğu · ${block.minutes} dk`;
+  }else{
+    $("timerSub").textContent = `${block.minutes} dk mola`;
+  }
+  $("skipBreakBtn").classList.toggle("hidden", block.type!=="break");
+  $("pauseBtn").textContent = timerState.paused ? "Devam et" : "Duraklat";
+
+  const root=$("timeline");
+  root.innerHTML="";
+  timerState.timeline.forEach((b,i)=>{
+    const n=document.createElement("div");
+    n.className="node "+(b.type==="break"?"break ":"")+(i<timerState.index?"done":i===timerState.index?"active":"");
+    n.textContent=b.type==="work"?`${b.minutes}′`:"☕";
+    root.appendChild(n);
+  });
+}
+
+function togglePause(){
+  if(!timerState) return;
+  if(timerState.paused){
+    timerState.paused=false;
+    timerState.blockStartedAt=Date.now();
+  }else{
+    timerState.elapsedBeforePauseMs=getElapsedCurrentMs();
+    timerState.paused=true;
+  }
+  renderTimerStatic();
+}
+
+function skipBreak(){
+  if(!timerState || currentBlock().type!=="break") return;
+  completeCurrentBlock();
+}
+
+function endSession(){
+  if(!timerState) return;
+  const block = currentBlock();
+  if(block && block.type==="work"){
+    const elapsedMin = clamp(getElapsedCurrentMs()/60000,0,block.minutes);
+    timerState.actualWork[block.workIndex] = Math.max(timerState.actualWork[block.workIndex] || 0, elapsedMin);
+  }
+  finishRun(false);
+}
+
+function finishRun(naturalCompletion){
+  clearInterval(intervalId);
+  intervalId=null;
+
+  if(!timerState) return;
+  const plan = timerState.plan;
+  const planned = sum(plan.curve);
+  const actual = timerState.actualWork.reduce((a,b)=>a+b,0);
+  const adherence = planned ? actual/planned : 0;
+
+  let dropoutIndex = null;
+  if(!naturalCompletion){
+    const cb = currentBlock();
+    if(cb && cb.type==="work") dropoutIndex = cb.workIndex;
+    else {
+      // If user quits during a break, attribute it to the next unfinished work block.
+      dropoutIndex = plan.curve.findIndex((_,i)=>(timerState.actualWork[i]||0) < plan.curve[i]);
+      if(dropoutIndex<0) dropoutIndex = null;
+    }
+  }
+
+  const peakIndex = plan.curve.indexOf(Math.max(...plan.curve));
+  let dropoutZone = null;
+  if(dropoutIndex !== null){
+    if(dropoutIndex < peakIndex) dropoutZone="early";
+    else if(dropoutIndex === peakIndex) dropoutZone="peak";
+    else dropoutZone="tail";
+  }
+
+  const run = {
+    id:timerState.runId,
+    startedAt:timerState.startedAt,
+    endedAt:Date.now(),
+    curve:plan.curve,
+    breakMin:plan.breakMin,
+    plannedWork:planned,
+    actualWork:+actual.toFixed(2),
+    actualBlocks:timerState.actualWork.map(v=>+v.toFixed(2)),
+    adherence:+adherence.toFixed(4),
+    completed:naturalCompletion || adherence >= .999,
+    dropoutIndex,
+    dropoutZone,
+    rpe:null
+  };
+  state.runs.push(run);
+  state.selectedCurve = plan.curve;
+  saveState();
+
+  timerState=null;
+  $("timerView").classList.add("hidden");
+  $("dashboardView").classList.remove("hidden");
+  openFeedback();
+  renderAll();
+}
+
+function openFeedback(){
+  selectedRpe=null;
+  const root=$("rpeGrid");
+  root.innerHTML="";
+  for(let i=1;i<=10;i++){
+    const b=document.createElement("button");
+    b.className="rpe-btn";
+    b.textContent=i;
+    b.onclick=()=>{
+      selectedRpe=i;
+      document.querySelectorAll(".rpe-btn").forEach(x=>x.classList.remove("selected"));
+      b.classList.add("selected");
+    };
+    root.appendChild(b);
+  }
+  $("feedbackModal").classList.remove("hidden");
+}
+
+function saveFeedback(){
+  if(selectedRpe==null) return alert("1–10 arasında bir zorluk puanı seç.");
+  const last=state.runs[state.runs.length-1];
+  if(last) last.rpe=selectedRpe;
+  saveState();
+  $("feedbackModal").classList.add("hidden");
+  renderAll();
+}
+
+function computeStats(){
+  const runs=state.runs;
+  if(!runs.length) return {streak:0,active7:0,adh:null,rpe:null};
+
+  const days=[...new Set(runs.filter(r=>r.actualWork>=10).map(r=>dayKey(r.startedAt)))].sort();
+  const today = new Date(); today.setHours(0,0,0,0);
+  let streak=0;
+  for(let i=0;i<60;i++){
+    const d=new Date(today); d.setDate(today.getDate()-i);
+    const key=d.toISOString().slice(0,10);
+    if(days.includes(key)) streak++;
+    else if(i===0) continue; // today's streak can still be alive before studying
+    else break;
+  }
+
+  const sevenAgo=new Date(); sevenAgo.setHours(0,0,0,0); sevenAgo.setDate(sevenAgo.getDate()-6);
+  const active7=[...new Set(runs.filter(r=>new Date(r.startedAt)>=sevenAgo && r.actualWork>=10).map(r=>dayKey(r.startedAt)))].length;
+
+  const recent=runs.slice(-7);
+  const adh=recent.length ? recent.reduce((a,r)=>a+r.adherence,0)/recent.length : null;
+  const withRpe=recent.filter(r=>r.rpe!=null);
+  const rpe=withRpe.length ? withRpe.reduce((a,r)=>a+r.rpe,0)/withRpe.length : null;
+  return {streak,active7,adh,rpe};
+}
+
+function makeSuggestedCurve(curve, type){
+  const c=[...curve];
+  const peak=c.indexOf(Math.max(...c));
+  if(type==="early"){
+    if(c[0]>5) c[0]=round5(c[0]*.75);
+    if(c[1]!=null) c[1]=round5(c[1]*.85);
+    return c;
+  }
+  if(type==="peak"){
+    const cut=Math.max(5,round5(c[peak]*.15));
+    c[peak]=Math.max(5,c[peak]-cut);
+    if(c[peak-1]!=null) c[peak-1]+=round5(cut/2);
+    if(c[peak+1]!=null) c[peak+1]+=round5(cut/2);
+    return c;
+  }
+  if(type==="tail"){
+    if(c.length>=2){
+      c[c.length-1]=Math.max(5,round5(c[c.length-1]*.75));
+      c[c.length-2]=Math.max(5,round5(c[c.length-2]*.9));
+    }
+    return c;
+  }
+  if(type==="overload"){
+    return c.map((v,i)=>round5(v + (i===peak?5: (i===0||i===c.length-1?0:5))));
+  }
+  return c;
+}
+
+function buildSuggestions(){
+  const runs=state.runs.slice(-8);
+  const stats=computeStats();
+  const out=[];
+  if(runs.length<5){
+    out.push({
+      title:"Önce veri biriktirelim",
+      body:`Şu an ${runs.length}/5 anlamlı oturum var. Profilini tek bir güne göre değiştirmeyeceğim.`,
+      action:null
+    });
+    return out;
+  }
+
+  const avgAdh=runs.reduce((a,r)=>a+r.adherence,0)/runs.length;
+  const rpes=runs.filter(r=>r.rpe!=null).map(r=>r.rpe);
+  const avgRpe=rpes.length?sum(rpes)/rpes.length:null;
+  let rpeTrend=0;
+  if(rpes.length>=4){
+    const mid=Math.floor(rpes.length/2);
+    const first=sum(rpes.slice(0,mid))/mid;
+    const second=sum(rpes.slice(mid))/(rpes.length-mid);
+    rpeTrend=second-first;
+  }
+
+  const zones={early:0,peak:0,tail:0};
+  runs.forEach(r=>{ if(r.dropoutZone) zones[r.dropoutZone]++; });
+  const dominant=Object.entries(zones).sort((a,b)=>b[1]-a[1])[0];
+
+  const baseCurve = state.selectedCurve || runs[runs.length-1].curve;
+
+  if(dominant[1]>=2 && avgAdh<.86){
+    const labels={early:"Başlangıcı daha davetkâr yap",peak:"Peak'i yumuşat",tail:"Son bölümü hafiflet"};
+    const bodies={
+      early:"Son oturumlarda bırakmalar çoğunlukla peak'ten önce geliyor. Giriş eşiğini biraz düşürmeyi deneyebiliriz.",
+      peak:"Tekrarlayan bırakmalar peak civarında. Tepeyi biraz düzleştirip yükü komşu bloklara dağıtabiliriz.",
+      tail:"Çoğunlukla son bölümde kopuş var. Peak'i değil, toplam yükün son kısmını hafifletmek daha mantıklı görünüyor."
+    };
+    out.push({
+      title:labels[dominant[0]],
+      body:bodies[dominant[0]],
+      action:{type:"curve",curve:makeSuggestedCurve(baseCurve,dominant[0])}
+    });
+  }
+
+  const readyForOverload = stats.active7>=4 && avgAdh>=.90 && avgRpe!==null && avgRpe<=6 && rpeTrend<=0.25;
+  if(readyForOverload){
+    out.push({
+      title:"Temponu artırmaya hazır olabilirsin",
+      body:`Son dönemde sıklığın güçlü, adherence ${(avgAdh*100).toFixed(0)}% ve ortalama RPE ${avgRpe.toFixed(1)}. Küçük bir progressive overload denemek istersen yeni çanı hazırladım.`,
+      action:{type:"curve",curve:makeSuggestedCurve(baseCurve,"overload")}
+    });
+  }
+
+  if(!out.length){
+    out.push({
+      title:"Şimdilik mevcut tempoyu koru",
+      body:"Veri var ama şu anda eğriyi değiştirmek için yeterince temiz bir pattern yok. Bu da bir sonuç: gereksiz optimizasyon yapmıyoruz.",
+      action:null
+    });
+  }
+  return out;
+}
+
+function applyCurve(curve){
+  state.previousCurve = state.selectedCurve ? [...state.selectedCurve] : null;
+  state.selectedCurve=[...curve];
+  saveState();
+  alert("Önerilen çan profil tercihi olarak kaydedildi. Yeni plan üretirken bunu referans olarak kullanacağız.");
+  renderAll();
+}
+
+function undoCurve(){
+  if(!state.previousCurve) return;
+  const tmp=state.selectedCurve;
+  state.selectedCurve=state.previousCurve;
+  state.previousCurve=tmp;
+  saveState();
+  renderAll();
+}
+
+function renderSuggestions(){
+  const root=$("suggestions");
+  root.innerHTML="";
+  const sugs=buildSuggestions();
+  sugs.forEach(s=>{
+    const el=document.createElement("div");
+    el.className="suggestion";
+    const actionHtml = s.action ? `
+      <div class="small muted" style="margin-top:8px">Öneri: ${s.action.curve.join(" – ")}</div>
+      <button class="btn" style="margin-top:10px">Öneriyi uygula</button>` : "";
+    el.innerHTML=`<strong>${s.title}</strong><div class="muted small">${s.body}</div>${actionHtml}`;
+    if(s.action) el.querySelector("button").onclick=()=>applyCurve(s.action.curve);
+    root.appendChild(el);
+  });
+  if(state.previousCurve){
+    const el=document.createElement("div");
+    el.className="suggestion";
+    el.innerHTML=`<strong>Geri dönüş hazır</strong><div class="muted small">Son profil değişikliğini beğenmediysen önceki çana dönebilirsin.</div><button class="btn" style="margin-top:10px">Önceki çana dön</button>`;
+    el.querySelector("button").onclick=undoCurve;
+    root.appendChild(el);
+  }
+}
+
+function renderHistory(){
+  const root=$("history");
+  const runs=[...state.runs].reverse().slice(0,8);
+  if(!runs.length){ root.innerHTML='<div class="empty">Henüz kayıt yok.</div>'; return; }
+  root.innerHTML="";
+  runs.forEach(r=>{
+    const d=new Date(r.startedAt);
+    const el=document.createElement("div");
+    el.className="history-item";
+    const zoneMap={early:"erken",peak:"peak",tail:"son bölüm"};
+    el.innerHTML=`
+      <div class="history-head">
+        <div><strong>${d.toLocaleDateString("tr-TR")} · ${r.curve.join("–")}</strong></div>
+        <div class="rpe">${r.rpe ? "RPE "+r.rpe : "RPE —"}</div>
+      </div>
+      <div class="muted small" style="margin-top:5px">
+        ${Math.round(r.actualWork)}/${r.plannedWork} dk · %${Math.round(r.adherence*100)} adherence
+        ${r.dropoutZone ? " · bırakma: "+zoneMap[r.dropoutZone] : " · tamamlandı"}
+      </div>
+    `;
+    root.appendChild(el);
+  });
+}
+
+function renderStats(){
+  const s=computeStats();
+  $("streakStat").textContent=s.streak;
+  $("freqStat").textContent=s.active7+"/7";
+  $("adhStat").textContent=s.adh==null?"—":"%"+Math.round(s.adh*100);
+  $("rpeStat").textContent=s.rpe==null?"—":s.rpe.toFixed(1);
+}
+
+function renderAll(){
+  renderStats();
+  renderHistory();
+  renderSuggestions();
+}
+
+function exportData(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="adaptive-pomodoro-data.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function resetAll(){
+  if(!confirm("Tüm profil ve çalışma verileri silinsin mi?")) return;
+  localStorage.removeItem(STORAGE_KEY);
+  state=structuredClone(defaultState);
+  selectedPlan=null;
+  renderAll();
+  openProfile();
+}
+
+$("saveProfileBtn").onclick=saveProfile;
+$("profileBtn").onclick=openProfile;
+$("generateBtn").onclick=generatePlans;
+$("editPlanBtn").onclick=()=>{ $("manualEditor").classList.toggle("hidden"); renderSessionEditor(); };
+$("startPlanBtn").onclick=startSelectedPlan;
+$("pauseBtn").onclick=togglePause;
+$("skipBreakBtn").onclick=skipBreak;
+$("endSessionBtn").onclick=endSession;
+$("saveFeedbackBtn").onclick=saveFeedback;
+$("exportBtn").onclick=exportData;
+$("resetBtn").onclick=resetAll;
+
+window.addEventListener("beforeunload",(e)=>{
+  if(timerState){
+    e.preventDefault();
+    e.returnValue="";
+  }
+});
+
+renderAll();
+if(!state.profile) openProfile();
+</script>
+</body>
+</html>
